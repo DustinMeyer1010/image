@@ -1,12 +1,17 @@
 package png
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 )
 
 var PNG_SINGATURE [8]byte = [8]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
 var IEND [4]byte = [4]byte{0x49, 0x45, 0x4E, 0x44}
+var IDAT [4]byte = [4]byte{'I', 'D', 'A', 'T'}
 
 // Header of PNG
 type IHDR struct {
@@ -62,9 +67,66 @@ func (p PNG) ValidateChunks() error {
 }
 
 // Take a path of PNG and decodees it
-func (p PNG) DecodePNG(filePath string) (*DecodedPNG, error) {
+func (p PNG) DecodePNG() [][]int {
 
-	return nil, nil
+	var data []byte
+
+	for _, chunk := range p.Chunks {
+
+		if chunk.Type == IDAT {
+			data = append(data, chunk.Data...)
+		}
+
+		if chunk.Type == [4]byte{'I', 'H', 'D', 'R'} {
+			fmt.Println(binary.BigEndian.Uint32(chunk.Data[0:4]), binary.BigEndian.Uint32(chunk.Data[4:8]))
+		}
+	}
+
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	width := 234
+	height := 215
+	bytesPerPixel := 4
+	stride := width * bytesPerPixel
+
+	decompressedData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil
+	}
+
+	offset := 0
+	rgba := [][]int{}
+
+	fmt.Println(decompressedData[0])
+
+	for y := 0; y < height; y++ {
+		if offset+1+stride > len(decompressedData) {
+			fmt.Println("fail")
+			return nil
+		}
+
+		// Skip filter byte
+		rowStart := offset + 1
+		//rowEnd := rowStart + stride
+
+		for x := 0; x < width; x++ {
+			base := rowStart + x*4
+			r := int(decompressedData[base])
+			g := int(decompressedData[base+1])
+			b := int(decompressedData[base+2])
+			a := int(decompressedData[base+3])
+			rgba = append(rgba, []int{r, g, b, a})
+
+		}
+
+		offset += stride + 1 // move to next scanline
+	}
+
+	return rgba
 
 }
 

@@ -15,6 +15,8 @@ func TestValidPNG(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, png)
 	assert.Equal(t, png.Signature, PNG_SINGATURE)
+
+	png.DecodePNG()
 }
 
 // invalidSignture has one byte of signature replace with randon byte
